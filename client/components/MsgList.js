@@ -46,6 +46,16 @@ const MsgList = () => {
     setEditingId(null);
   };
 
+  const onDelete = (id) => {
+    setMsgs((msgs) => {
+      const targetIdx = msgs.findIndex((msg) => msg.id === id);
+      if (targetIdx < 0) return msgs;
+      const newMsgs = [...msgs];
+      newMsgs.splice(targetIdx, 1);
+      return newMsgs;
+    });
+  };
+
   return (
     <>
       <MsgInput mutate={onCreate} />
@@ -57,6 +67,7 @@ const MsgList = () => {
             onUpdate={onUpdate}
             isEditing={editingId === msg.id}
             startEdit={() => setEditingId(msg.id)}
+            onDelete={() => onDelete(msg.id)}
           />
         ))}
       </ul>
