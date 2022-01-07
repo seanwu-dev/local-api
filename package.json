@@ -1,0 +1,20 @@
+{
+  "name": "local-api",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "https://github.com/seanwu-dev/local-api.git",
+  "author": "seanwu-dev <seanwu.dev@gmail.com>",
+  "license": "MIT",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "client": "yarn workspace client start",
+    "server": "yarn workspace server start"
+  },
+  "devDependencies": {
+    "prettier": "^2.5.1"
+  }
+}
