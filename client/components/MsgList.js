@@ -19,11 +19,11 @@ const getRandomId = () => UserIds[Math.round(Math.random())];*/
 
 console.log(JSON.stringify(originalMsgs));*/
 
-const MsgList = () => {
+const MsgList = ({ serverMsgs, users }) => {
   const {
     query: { userId = '' },
   } = useRouter(); // http://localhost:3000/?userId=sean
-  const [msgs, setMsgs] = useState([]);
+  const [msgs, setMsgs] = useState(serverMsgs);
   const [editingId, setEditingId] = useState(null);
   const fetchMoreEl = useRef(null);
   const intersecting = useInfiniteScroll(fetchMoreEl);
@@ -103,6 +103,7 @@ const MsgList = () => {
             startEdit={() => setEditingId(msg.id)}
             onDelete={() => onDelete(msg.id)}
             myId={userId}
+            user={users[msg.userId]}
           />
         ))}
       </ul>
