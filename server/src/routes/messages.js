@@ -9,9 +9,10 @@ const messageRoute = [
     // GET MESSAGES
     method: 'get',
     route: '/messages',
-    handler: (req, res) => {
+    handler: ({ query: { cursor = '' } }, res) => {
       const msgs = getMsgs();
-      res.send(msgs);
+      const fromIdx = msgs.findIndex((msg) => msg.id === cursor) + 1;
+      res.send(msgs.slice(fromIdx, fromIdx + 12));
     },
   },
   {
@@ -42,8 +43,8 @@ const messageRoute = [
         text: body.text,
       };
       msgs.unshift(newMsg);
-      const response = setMsgs(msgs);
-      res.send(response);
+      setMsgs(msgs);
+      res.send(newMsg);
     },
   },
   {
@@ -58,8 +59,8 @@ const messageRoute = [
         if (msgs[targetIdx].userId !== body.userId) throw '사용자가 다릅니다.';
         const newMsg = { ...msgs[targetIdx], text: body.text };
         msgs.splice(targetIdx, 1, newMsg);
-        const response = setMsgs(msgs);
-        res.send(response);
+        setMsgs(msgs);
+        res.send(newMsg);
       } catch (err) {
         res.status(500).send({ error: err });
       }
@@ -69,15 +70,15 @@ const messageRoute = [
     // DELETE MESSAGE
     method: 'delete',
     route: '/messages/:id',
-    handler: ({ body, params: { id } }, res) => {
+    handler: ({ body, params: { id }, query: { userId } }, res) => {
       try {
         const msgs = getMsgs();
         const targetIdx = msgs.findIndex((msg) => msg.id === id);
         if (targetIdx < 0) throw '메시지가 없습니다.';
-        if (msgs[targetIdx].userId !== body.userId) throw '사용자가 다릅니다.';
+        if (msgs[targetIdx].userId !== userId) throw '사용자가 다릅니다.';
         msgs.splice(targetIdx, 1);
-        const response = setMsgs(msgs);
-        res.send(response);
+        setMsgs(msgs);
+        res.send(id);
       } catch (err) {
         res.status(500).send({ error: err });
       }
