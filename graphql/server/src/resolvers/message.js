@@ -34,7 +34,7 @@ const messageResolver = {
       const targetIdx = db.messages.findIndex((msg) => msg.id === id);
       if (targetIdx < 0) throw '메시지가 없습니다.';
       if (db.messages[targetIdx].userId !== userId) throw '사용자가 다릅니다.';
-      const newMsg = { ...msgs[targetIdx], text };
+      const newMsg = { ...db.messages[targetIdx], text };
       db.messages.splice(targetIdx, 1, newMsg);
       setMsgs(db.messages);
       return newMsg;
