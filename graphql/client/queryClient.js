@@ -11,3 +11,20 @@ export const QueryKeys = {
   USERS: 'USERS',
   USER: 'USER',
 };
+
+export const findTargetMsgIdx = (pages, id) => {
+  let msgIdx = -1;
+  const pageIdx = pages.findIndex(({ messages }) => {
+    msgIdx = messages.findIndex((msg) => msg.id === id);
+    if (msgIdx > -1) {
+      return true;
+    }
+    return false;
+  });
+  return { pageIdx, msgIdx };
+};
+
+export const getNewMsgs = (old) => ({
+  pageParams: old.pageParams,
+  pages: old.pages.map(({ messages }) => ({ messages: [...messages] })),
+});

@@ -6,10 +6,11 @@ const messageSchema = gql`
     userId: ID!
     timestamp: Float
     text: String!
+    user: User!
   }
 
   extend type Query {
-    messages: [Message!]! # getMessages
+    messages(cursor: ID): [Message!]! # getMessages
     message(id: ID!): Message! # getMessage
   }
 

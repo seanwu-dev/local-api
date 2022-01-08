@@ -1,10 +1,20 @@
 import MsgItem from './MsgItem';
 import MsgInput from './MsgInput';
 import { useEffect, useRef, useState } from 'react';
-import { fetcher, QueryKeys } from '../queryClient';
+import {
+  fetcher,
+  QueryKeys,
+  findTargetMsgIdx,
+  getNewMsgs,
+} from '../queryClient';
 import { useRouter } from 'next/router';
 import useInfiniteScroll from '../hooks/useInfiniteScroll';
-import { useMutation, useQuery, useQueryClient } from 'react-query';
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from 'react-query';
 import {
   GET_MESSAGES,
   CREATE_MESSAGE,
@@ -12,24 +22,30 @@ import {
   DELETE_MESSAGE,
 } from '../graphql/message';
 
-const MsgList = ({ serverMsgs, users }) => {
+const MsgList = ({ serverMsgs }) => {
   const client = useQueryClient();
   const {
     query: { userId = '' },
   } = useRouter(); // http://localhost:3000/?userId=sean
-  const [msgs, setMsgs] = useState(serverMsgs);
+  const [msgs, setMsgs] = useState([{ messages: serverMsgs }]);
   const [editingId, setEditingId] = useState(null);
-  /*const fetchMoreEl = useRef(null);
+  const fetchMoreEl = useRef(null);
   const intersecting = useInfiniteScroll(fetchMoreEl);
-  const [hasNext, setHasNext] = useState(true);*/
+  /*const [hasNext, setHasNext] = useState(true);*/
 
   const { mutate: onCreate } = useMutation(
     ({ text }) => fetcher(CREATE_MESSAGE, { text, userId }),
     {
       onSuccess: ({ createMessage }) => {
+        // pages: [{ messages: [createMessage, 12] }, { messages: [12] }, { messages: [8] }]
         client.setQueryData(QueryKeys.MESSAGES, (old) => {
           return {
-            messages: [createMessage, ...old.messages],
+            pageParam: old.pageParam,
+            pages: [
+              { messages: [createMessage, ...old.pages[0].messages] },
+              ...old.pages.slice(1),
+            ],
+            /*messages: [createMessage, ...old.messages],*/
           };
         });
       },
@@ -46,16 +62,20 @@ const MsgList = ({ serverMsgs, users }) => {
     ({ text, id }) => fetcher(UPDATE_MESSAGE, { text, id, userId }),
     {
       onSuccess: ({ updateMessage }) => {
-        client.setQueryData(QueryKeys.MESSAGES, (old) => {
-          const targetIdx = old.messages.findIndex(
-            (msg) => msg.id === updateMessage.id,
-          );
-          if (targetIdx < 0) return old;
-          const newMsgs = [...old.messages];
-          newMsgs.splice(targetIdx, 1, updateMessage);
-          return { messages: newMsgs };
-        });
         doneEdit();
+        client.setQueryData(QueryKeys.MESSAGES, (old) => {
+          // pages: [{ messages: [12] }, { messages: [1, 2, 3, ... ,**7**, 8, ... , 12] }, { messages: [8] }]
+          const { pageIdx, msgIdx } = findTargetMsgIdx(
+            old.pages,
+            updateMessage.id,
+          );
+          if (pageIdx < 0 || msgIdx < 0) return old;
+          const newMsgs = getNewMsgs(old);
+          /*const newPages = [...old.pages];
+          newPages[pageIdx] = { messages: [...newPages[pageIdx].messages] };*/
+          newMsgs.pages[pageIdx].messages.splice(msgIdx, 1, updateMessage);
+          return newMsgs;
+        });
       },
     },
   );
@@ -82,13 +102,13 @@ const MsgList = ({ serverMsgs, users }) => {
     {
       onSuccess: ({ deleteMessage: deletedId }) => {
         client.setQueryData(QueryKeys.MESSAGES, (old) => {
-          const targetIdx = old.messages.findIndex(
-            (msg) => msg.id === deletedId,
-          );
-          if (targetIdx < 0) return old;
-          const newMsgs = [...old.messages];
-          newMsgs.splice(targetIdx, 1);
-          return { messages: newMsgs };
+          const { pageIdx, msgIdx } = findTargetMsgIdx(old.pages, deletedId);
+          if (pageIdx < 0 || msgIdx < 0) return old;
+          const newMsgs = getNewMsgs(old);
+          /*const newPages = [...old.pages];
+          newPages[pageIdx] = { messages: [...newPages[pageIdx].messages] };*/
+          newMsgs.pages[pageIdx].messages.splice(msgIdx, 1);
+          return newMsgs;
         });
       },
     },
@@ -107,17 +127,24 @@ const MsgList = ({ serverMsgs, users }) => {
     });
   };*/
 
-  const { data, error, isError } = useQuery(QueryKeys.MESSAGES, () =>
-    fetcher(GET_MESSAGES),
+  const { data, error, isError, fetchNextPage, hasNextPage } = useInfiniteQuery(
+    QueryKeys.MESSAGES,
+    ({ pageParam = '' }) => {
+      return fetcher(GET_MESSAGES, { cursor: pageParam });
+    },
+    {
+      getNextPageParam: ({ messages }) => {
+        return messages[messages.length - 1]?.id;
+      },
+    },
   );
 
-  console.log(data);
-
   useEffect(() => {
-    if (!data?.messages) return;
+    if (!data?.pages) return;
     console.log('msgs changed!');
-    setMsgs(data.messages);
-  }, [data?.messages]);
+    /*const mergedMsgs = data.pages.flatMap((data) => data.messages);*/
+    setMsgs(data.pages);
+  }, [data?.pages]);
 
   if (isError) {
     console.error(error);
@@ -135,28 +162,34 @@ const MsgList = ({ serverMsgs, users }) => {
     setMsgs((msgs) => [...msgs, ...newMsgs]);
   };*/
 
-  /*useEffect(() => {
-    if (intersecting && hasNext) getMsgs();
-  }, [intersecting]);*/
+  useEffect(() => {
+    if (intersecting && hasNextPage) {
+      fetchNextPage();
+    }
+  }, [intersecting, hasNextPage]);
+
+  console.log({ data });
 
   return (
     <>
       <MsgInput mutate={onCreate} />
       <ul className="messages">
-        {msgs.map((msg) => (
-          <MsgItem
-            key={msg.id}
-            {...msg}
-            onUpdate={onUpdate}
-            isEditing={editingId === msg.id}
-            startEdit={() => setEditingId(msg.id)}
-            onDelete={() => onDelete(msg.id)}
-            myId={userId}
-            user={users.find((user) => userId === user.id)}
-          />
-        ))}
+        {msgs.map(({ messages }) =>
+          messages.map((msg) => (
+            <MsgItem
+              key={msg.id}
+              {...msg}
+              onUpdate={onUpdate}
+              isEditing={editingId === msg.id}
+              startEdit={() => setEditingId(msg.id)}
+              onDelete={() => onDelete(msg.id)}
+              myId={userId}
+              /*user={users.find((user) => userId === user.id)}*/
+            />
+          )),
+        )}
       </ul>
-      {/*<div ref={fetchMoreEl}></div>*/}
+      <div ref={fetchMoreEl}></div>
     </>
   );
 };

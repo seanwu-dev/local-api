@@ -13,8 +13,10 @@ const Home = ({ serverMsgs, users }) => {
 };
 
 export const getServerSideProps = async () => {
-  const { messages: serverMsgs } = await fetcher(GET_MESSAGES);
-  const { users } = await fetcher(GET_USERS);
+  const [{ messages: serverMsgs }, { users }] = await Promise.all([
+    fetcher(GET_MESSAGES),
+    fetcher(GET_USERS),
+  ]);
 
   console.log({ serverMsgs, users });
 

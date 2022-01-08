@@ -2,7 +2,6 @@ import MsgInput from './MsgInput';
 
 const MsgItem = ({
   id,
-  userId,
   timestamp,
   text,
   onUpdate,
@@ -34,7 +33,7 @@ const MsgItem = ({
       ) : (
         <div>
           {text}
-          {myId === userId && (
+          {myId === user.id && (
             <div className="messages__buttons">
               <button onClick={startEdit}>수정</button>
               <button onClick={onDelete}>삭제</button>
